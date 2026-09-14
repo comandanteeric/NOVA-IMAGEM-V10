@@ -333,6 +333,90 @@ function payrollRows(competence){const h=hrData(),rows=[];for(const e of h.emplo
 function previewPayroll(){const comp=$('hrCompetence')?.value;if(!comp)return alert('Informe a competência.');const rows=payrollRows(comp);$('payrollPreview').innerHTML=`<table class="table"><thead><tr><th>Pessoa</th><th>Tipo</th><th>Base</th><th>Comissão</th><th>Total</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.name)}</td><td>${r.kind}</td><td>${money(r.base)}</td><td>${money(r.commission)}</td><td><strong>${money(r.total)}</strong></td></tr>`).join('')}</tbody></table>`;return rows}
 function closePayroll(){const comp=$('hrCompetence')?.value,due=$('hrDueDate')?.value;if(!comp||!due)return alert('Informe competência e vencimento.');const h=hrData();if(h.payrollClosings.some(x=>x.competence===comp))return alert('Esta competência já foi fechada. Evitamos duplicidade.');const rows=payrollRows(comp);if(!rows.length)return alert('Não há remunerações para fechar.');for(const r of rows){db.payables.unshift({id:uid(),title:`DP-${comp}-${r.refId}`,documentNumber:`DP-${comp}-${r.refId}`,definition:r.kind==='CLT'?`REMUNERAÇÃO • ${r.name}`:`SERVIÇOS • ${r.name}`,quoteNumber:comp,dueDate:due,value:r.total,paidValue:0,paidDate:'',notes:r.commission?`Salário/base ${money(r.base)} + comissão ${money(r.commission)}`:`Competência ${comp}`,hrCompetence:comp,hrRefId:r.refId})}h.payrollClosings.push({id:uid(),competence:comp,dueDate:due,rows,closedAt:new Date().toISOString(),by:currentUsername()});queueSave();renderPayables();renderHR();alert('Competência fechada e enviada ao Contas a Pagar.')}
 
-function bind(){document.querySelectorAll('.choice').forEach(b=>b.onclick=()=>{$('eModel').value=b.dataset.model;updateModelFields()});['eName','eWidth','eHeight','eLeaves','eFinish','eFinishColor','eFinishPleat','eFinishGather','eLining','eLiningColor','eLiningPleat','eLiningGather','eFixation','eFixColor','eCustomPleat'].forEach(id=>$(id)?.addEventListener('input',updatePreview));$('eFinish')?.addEventListener('change',()=>{refreshFinishColors();updatePreview()});$('eLining')?.addEventListener('change',()=>{refreshLiningColors();updatePreview()});$('eFixation')?.addEventListener('change',()=>{refreshFixColors();updatePreview()});$('addEnvBtn').onclick=()=>{const e=envFromForm();if(!e.name||!e.width||!e.height)return alert('Preencha ambiente, largura e altura.');draft.environments.push(e);renderQuote();clearEnv()};['qClient','qDate','qAddress','qContact','qSeller'].forEach(id=>$(id)?.addEventListener('input',syncDraft));$('qTravel')?.addEventListener('input',()=>{syncDraft();renderQuote()});['qDiscount','qDiscountReason'].forEach(id=>$(id)?.addEventListener('input',()=>{syncDraft();renderQuote()}));$('addLooseBtn').onclick=openLooseProduct;if($('addSpecialBtn'))$('addSpecialBtn').onclick=openSpecialProduct;$('addBlindBtn').onclick=openBlind;$('saveQuoteBtn').onclick=()=>saveQuote(false);$('savePrintBtn').onclick=()=>saveQuote(true);$('resetQuoteBtn').onclick=resetQuote;$('quoteSearch')?.addEventListener('input',renderQuotes);$('clientSearch')?.addEventListener('input',renderClients);$('productSearch')?.addEventListener('input',renderProducts);$('newClientBtn').onclick=()=>openClientModal();$('newProductBtn').onclick=()=>openProduct();if($('inventoryCountBtn'))$('inventoryCountBtn').onclick=openPhysicalInventory;$('savePricesBtn').onclick=savePricing;$('newPayableBtn').onclick=()=>openPayable();$('newSupplierBtn').onclick=()=>openSupplier();$('newPurchaseBtn').onclick=()=>openPurchase();['payFrom','payTo','payStatus'].forEach(id=>{if($(id))$(id).oninput=renderPayables});if($('clearPayFilters'))$('clearPayFilters').onclick=()=>{$('payFrom').value='';$('payTo').value='';$('payStatus').value='';renderPayables()};if($('printPayablesBtn'))$('printPayablesBtn').onclick=()=>{const rows=[...document.querySelectorAll('#payablesTable tr')].map(tr=>'<tr>'+tr.innerHTML.replace(/<td><button[\s\S]*?<\/td>/,'')+'</tr>').join('');printWindow(`<h2>CONTAS A PAGAR</h2>${$('payableSummary')?.innerHTML||''}<table>${rows}</table>`)};$('newReworkBtn').onclick=openRework;$('newUserBtn').onclick=openUser;['kpiFrom','kpiTo','kpiSeller'].forEach(id=>{if($(id))$(id).oninput=renderKpis});if($('clearKpiFilters'))$('clearKpiFilters').onclick=()=>{$('kpiFrom').value='';$('kpiTo').value='';$('kpiSeller').value='';renderKpis()};if($('printKpisBtn'))$('printKpisBtn').onclick=printKpis;if($('newEmployeeBtn'))$('newEmployeeBtn').onclick=()=>openEmployee();if($('newProviderBtn'))$('newProviderBtn').onclick=()=>openProvider();if($('previewPayrollBtn'))$('previewPayrollBtn').onclick=previewPayroll;if($('closePayrollBtn'))$('closePayrollBtn').onclick=closePayroll;$('modalClose').onclick=closeModal;$('modal').addEventListener('click',e=>{if(e.target===$('modal'))closeModal()});$('loginBtn').onclick=doLogin;$('loginPass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});$('logoutBtn').onclick=logout}
+function bind(){
+  const onClick=(id,fn)=>{const el=$(id);if(el)el.onclick=fn};
+  const on=(id,event,fn)=>{const el=$(id);if(el)el.addEventListener(event,fn)};
+
+  document.querySelectorAll('.choice').forEach(b=>b.onclick=()=>{
+    const model=$('eModel');
+    if(model)model.value=b.dataset.model;
+    updateModelFields();
+  });
+
+  ['eName','eWidth','eHeight','eLeaves','eFinish','eFinishColor','eFinishPleat','eFinishGather','eLining','eLiningColor','eLiningPleat','eLiningGather','eFixation','eFixColor','eCustomPleat']
+    .forEach(id=>on(id,'input',updatePreview));
+
+  on('eFinish','change',()=>{refreshFinishColors();updatePreview()});
+  on('eLining','change',()=>{refreshLiningColors();updatePreview()});
+  on('eFixation','change',()=>{refreshFixColors();updatePreview()});
+
+  onClick('addEnvBtn',()=>{
+    const e=envFromForm();
+    if(!e.name||!e.width||!e.height)return alert('Preencha ambiente, largura e altura.');
+    draft.environments.push(e);
+    renderQuote();
+    clearEnv();
+  });
+
+  ['qClient','qDate','qAddress','qContact','qSeller'].forEach(id=>on(id,'input',syncDraft));
+  on('qTravel','input',()=>{syncDraft();renderQuote()});
+  ['qDiscount','qDiscountReason'].forEach(id=>on(id,'input',()=>{syncDraft();renderQuote()}));
+
+  onClick('addLooseBtn',openLooseProduct);
+  onClick('addSpecialBtn',openSpecialProduct);
+  onClick('addBlindBtn',openBlind);
+  onClick('saveQuoteBtn',()=>saveQuote(false));
+  onClick('savePrintBtn',()=>saveQuote(true));
+  onClick('resetQuoteBtn',resetQuote);
+
+  on('quoteSearch','input',renderQuotes);
+  on('clientSearch','input',renderClients);
+  on('productSearch','input',renderProducts);
+
+  onClick('newClientBtn',()=>openClientModal());
+  onClick('newProductBtn',()=>openProduct());
+  onClick('inventoryCountBtn',openPhysicalInventory);
+  onClick('savePricesBtn',savePricing);
+  onClick('newPayableBtn',()=>openPayable());
+  onClick('newSupplierBtn',()=>openSupplier());
+  onClick('newPurchaseBtn',()=>openPurchase());
+
+  ['payFrom','payTo','payStatus'].forEach(id=>on(id,'input',renderPayables));
+  onClick('clearPayFilters',()=>{
+    if($('payFrom'))$('payFrom').value='';
+    if($('payTo'))$('payTo').value='';
+    if($('payStatus'))$('payStatus').value='';
+    renderPayables();
+  });
+  onClick('printPayablesBtn',()=>{
+    const rows=[...document.querySelectorAll('#payablesTable tr')]
+      .map(tr=>'<tr>'+tr.innerHTML.replace(/<td><button[\s\S]*?<\/td>/,'')+'</tr>').join('');
+    printWindow(`<h2>CONTAS A PAGAR</h2>${$('payableSummary')?.innerHTML||''}<table>${rows}</table>`);
+  });
+
+  onClick('newReworkBtn',openRework);
+  onClick('newUserBtn',openUser);
+
+  ['kpiFrom','kpiTo','kpiSeller'].forEach(id=>on(id,'input',renderKpis));
+  onClick('clearKpiFilters',()=>{
+    if($('kpiFrom'))$('kpiFrom').value='';
+    if($('kpiTo'))$('kpiTo').value='';
+    if($('kpiSeller'))$('kpiSeller').value='';
+    renderKpis();
+  });
+  onClick('printKpisBtn',printKpis);
+
+  onClick('newEmployeeBtn',()=>openEmployee());
+  onClick('newProviderBtn',()=>openProvider());
+  onClick('previewPayrollBtn',previewPayroll);
+  onClick('closePayrollBtn',closePayroll);
+
+  onClick('modalClose',closeModal);
+  on('modal','click',e=>{if(e.target===$('modal'))closeModal()});
+
+  onClick('loginBtn',doLogin);
+  on('loginPass','keydown',e=>{if(e.key==='Enter')doLogin()});
+  onClick('logoutBtn',logout);
+}
 async function init(){bind();db.priceConfig=mergeConfig(db.priceConfig);ensureInitialInventory();ensureSellerControl();setupSelectors();draft.seller='';draft.sellerUser='';renderQuote();if(!await restore()){$('loginScreen').classList.remove('hidden');setTimeout(()=>$('loginUser').focus(),50)}}
 init();
